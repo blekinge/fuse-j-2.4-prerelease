@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dk.statsbiblioteket.fuse-j</groupId>
+        <artifactId>fuse-j-parent</artifactId>
+        <version>2.4-SNAPSHOT</version>
+    </parent>
+
+    <groupId>dk.statsbiblioteket.fuse-j</groupId>
+    <artifactId>jni</artifactId>
+    <version>2.4-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>dk.statsbiblioteket.fuse-j</groupId>
+            <artifactId>fuseFS</artifactId>
+            <version>2.4-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+
+
+    <properties>
+        <fuse.home>/usr/local</fuse.home>
+        <jdk.home>${java.home}/..</jdk.home>
+        <lib.so>target/libjavafs.so</lib.so>
+        <jni.dir>target/jni</jni.dir>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.7</version>
+                <executions>
+                    <execution>
+                        <id>compile native code</id>
+                        <phase>package</phase>
+                        <configuration>
+                            <target>
+
+                                <pathconvert pathsep=" " property="c.files">
+                                    <path>
+                                        <fileset dir="${jni.dir}">
+                                            <include name="*.c"/>
+                                        </fileset>
+                                    </path>
+                                </pathconvert>
+
+                                <property
+                                        name="includes"
+                                        value="-I${fuse.home}/include -I${jdk.home}/include -I${jdk.home}/include/linux"/>
+
+                                <pathconvert pathsep=" -L" property="_ldpath">
+                                    <path path="${java.library.path}"/>
+                                </pathconvert>
+                                <property name="ldpath" value="-L${_ldpath} -L${fuse.home}/lib"/>
+
+
+                                <exec executable="gcc" dir="." failonerror="true">
+                                    <arg value="-fPIC"/>
+                                    <arg value="-shared"/>
+                                    <arg value="-D_FILE_OFFSET_BITS=64"/>
+                                    <arg value="-o"/>
+                                    <arg value="${lib.so}"/>
+                                    <arg line="${includes}"/>
+                                    <arg line="${ldpath}"/>
+                                    <arg value="-ljvm"/>
+                                    <arg value="-lfuse"/>
+                                    <arg value="-lpthread"/>
+                                    <arg line="${c.files}"/>
+                                </exec>
+
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>generate native code</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${jni.dir}"/>
+
+
+
+
+                                <java classname="java2c.CAPIGenerator">
+                                    <classpath refid="maven.runtime.classpath"/>
+                                    <arg file="${jni.dir}/javafs_bindings.h"/>
+                                    <arg file="${jni.dir}/javafs_bindings.c"/>
+                                    <arg value="javafs.h"/>
+                                </java>
+                                <copy toDir="${jni.dir}">
+                                    <fileset dir="src/main/native">
+                                        <include name="*.c"/>
+                                        <include name="*.h"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.3.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classesDirectory>target</classesDirectory>
+                            <classifier>native</classifier>
+                            <includes>
+                                <include>libjavafs*.so</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
+    </build>
+
+</project>
